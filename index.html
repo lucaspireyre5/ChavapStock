@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="theme-color" content="#171329">
+  <title>Cha'Vap Stock — Gestion des stocks</title>
+  <meta name="description" content="Gestion des stocks privée et synchronisée pour Cha'Vap.">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="config.js"></script>
+  <script defer src="cloud.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <section class="auth-overlay" id="auth-overlay" aria-labelledby="auth-title">
+    <form class="auth-card" id="login-form">
+      <div class="auth-brand-banner">
+        <div class="auth-brand-copy"><span>CHA’VAP STOCK</span><strong>Un espace rien qu’à vous.</strong><small>Inventaire privé & synchronisé</small></div>
+        <img class="auth-brand-cat" src="assets/chat-chavap.webp" alt="Chat mascotte original Cha’Vap, avec sa vapeur turquoise" fetchpriority="high">
+      </div>
+      <span class="eyebrow">CHA'VAP · ESPACE PRIVÉ</span>
+      <h1 id="auth-title">Votre stock, partout.</h1>
+      <p>Connectez-vous pour retrouver le même inventaire sur téléphone et ordinateur.</p>
+      <label class="field"><span>Identifiant ou adresse e-mail</span><input id="login-email" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="120" required placeholder="Ex. : CelineCha'vap"></label>
+      <label class="field"><span>Mot de passe</span><input id="login-password" type="password" autocomplete="current-password" required placeholder="Mot de passe"></label>
+      <button type="submit" class="button button-primary auth-submit" id="login-submit">Se connecter</button>
+      <p id="login-error" class="auth-error" role="alert" hidden></p>
+      <small>Accès réservé aux comptes autorisés. Un identifiant suffit : aucune adresse e-mail à saisir pour Céline.</small>
+    </form>
+  </section>
+  <div class="app-shell" id="app-shell" hidden>
+    <aside class="sidebar">
+      <a class="brand" href="#tableau-de-bord" aria-label="Cha'Vap Stock, accueil">
+        <span class="brand-mark brand-cat-mark"><img src="assets/chat-chavap.webp" alt="" aria-hidden="true"></span>
+        <span class="brand-label"><strong>Cha'Vap</strong><small>STOCK MANAGER</small></span>
+      </a>
+      <div class="sidebar-label">ESPACE DE GESTION</div>
+      <nav class="nav" aria-label="Navigation principale">
+        <button type="button" class="nav-link active" data-tab="dashboard"><span class="nav-icon">◫</span> Tableau de bord</button>
+        <button type="button" class="nav-link" data-tab="products"><span class="nav-icon">▦</span> Articles et stocks <span id="nav-product-count" class="nav-count">0</span></button>
+        <button type="button" class="nav-link" data-tab="history"><span class="nav-icon">↗</span> Mouvements</button>
+        <button type="button" class="nav-link" data-tab="backup"><span class="nav-icon">⛨</span> Sauvegardes</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="local-status"><span class="status-dot"></span><div><strong>Cloud sécurisé</strong><small id="sync-status">Connexion en cours…</small></div></div>
+        <div class="sidebar-foot">Cha'Vap Stock <span>v4.1 · Supabase</span></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left"><span class="header-pill">Gestion de stock</span><span class="topbar-date" id="today"></span></div>
+        <div class="top-actions"><button class="button button-subtle compact" id="reload-cloud" type="button" title="Actualiser les données">⟳ <span class="hide-sm">Actualiser</span></button><button class="button button-subtle compact" id="change-password" type="button" title="Modifier mon mot de passe">Mot de passe</button><button class="button button-subtle compact" id="logout" type="button" title="Se déconnecter">Déconnexion</button>
+          <button class="button button-subtle compact" id="export-header" type="button">↓ <span class="hide-sm">Sauvegarder</span></button>
+          <button class="button button-primary" id="new-product-top" type="button"><span class="plus">+</span> Nouvel article</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="view active" id="view-dashboard" aria-labelledby="dashboard-title">
+          <div class="page-heading"><div><div class="eyebrow">VUE D'ENSEMBLE</div><h1 id="dashboard-title">Tableau de bord<span class="heading-dot">.</span></h1><p>Votre activité en un coup d'œil, sans tableur.</p></div><div class="date-box"><span>Aujourd'hui</span><strong id="dashboard-date"></strong></div></div>
+          <div class="hero-banner"><div><span class="hero-kicker">CHA'VAP · INVENTAIRE</span><h2>Gardez un œil sur<br>chaque produit.</h2><p>Ajoutez vos articles, suivez vos quantités et maîtrisez vos marges.</p><button type="button" class="button button-white" id="hero-add">+ Ajouter un produit</button></div><div class="hero-art hero-cat-art" aria-hidden="true"><div class="art-circle circle-a"></div><div class="art-circle circle-b"></div><img src="assets/chat-chavap.webp" alt="" loading="lazy" class="hero-cat"></div></div>
+          <div class="stats-grid">
+            <div class="stat-card"><div class="stat-icon lilac">▦</div><span>Références</span><strong id="stat-products">0</strong><small>Produits enregistrés</small></div>
+            <div class="stat-card"><div class="stat-icon mint">◫</div><span>Unités en stock</span><strong id="stat-units">0</strong><small>Quantité totale</small></div>
+            <div class="stat-card"><div class="stat-icon peach">€</div><span>Valeur du stock HT</span><strong id="stat-cost">0,00 €</strong><small>Sur la base du coût d'achat</small></div>
+            <div class="stat-card"><div class="stat-icon blue">↗</div><span>Bénéfice brut potentiel</span><strong id="stat-profit">0,00 €</strong><small>Si toutes les unités sont vendues</small></div>
+          </div>
+          <div class="dashboard-panels">
+            <div class="panel"><div class="panel-head"><div><h3>Alertes de stock</h3><p>Les articles à réapprovisionner</p></div><span class="count-badge" id="alerts-count">0</span></div><div id="alerts-list" class="stack-list"></div><button class="text-action" type="button" data-open-tab="products">Voir tous les produits →</button></div>
+            <div class="panel"><div class="panel-head"><div><h3>Répartition par catégorie</h3><p>Les unités actuellement disponibles</p></div></div><div id="category-chart" class="category-chart"></div></div>
+          </div>
+          <div class="panel recent-panel"><div class="panel-head"><div><h3>Derniers mouvements</h3><p>Entrées, ventes et corrections récentes</p></div><button type="button" class="text-action" data-open-tab="history">Historique complet →</button></div><div id="recent-movements"></div></div>
+          <p class="disclaimer">Les bénéfices affichés sont des estimations HT, avant charges générales, impôts et autres coûts non saisis.</p>
+        </section>
+
+        <section class="view" id="view-products" aria-labelledby="products-title">
+          <div class="page-heading"><div><div class="eyebrow">CATALOGUE</div><h1 id="products-title">Articles & stocks<span class="heading-dot">.</span><img class="catalog-cat" src="assets/chat-chavap.webp" alt="" aria-hidden="true" loading="lazy"></h1><p>Gérez vos références, photos, prix, TVA et quantités.</p></div><button class="button button-primary" type="button" id="new-product-page">+ Ajouter un article</button></div>
+          <div class="panel product-panel">
+            <div class="product-toolbar"><label class="search-box"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="Rechercher un article, une référence…" aria-label="Rechercher un article"></label><select id="category-filter" aria-label="Filtrer par catégorie"><option value="all">Toutes les catégories</option></select><select id="stock-filter" aria-label="Filtrer par état du stock"><option value="all">Tous les stocks</option><option value="low">Stock faible</option><option value="out">Rupture</option><option value="ok">Disponible</option></select><select id="sort-select" aria-label="Trier les produits"><option value="recent">Plus récents</option><option value="name">Nom A → Z</option><option value="quantity">Stock croissant</option><option value="profit">Bénéfice décroissant</option></select></div>
+            <div class="table-scroll"><table class="data-table products-table"><thead><tr><th>PRODUIT</th><th>CATÉGORIE</th><th>STOCK</th><th>ACHAT HT</th><th>VENTE TTC</th><th>TVA / UNITÉ</th><th>BÉNÉFICE / UNITÉ</th><th>ACTIONS</th></tr></thead><tbody id="products-body"></tbody></table></div>
+            <div class="table-footer"><span id="product-results">0 résultat</span><span>Montants en euros (€)</span></div>
+          </div>
+          <div class="info-strip"><span class="info-icon">i</span><p>Prix d'achat et frais additionnels saisis <strong>hors taxes</strong>, prix de vente <strong>TTC</strong>. Le bénéfice brut estimé = vente HT − achat HT − frais HT.</p></div>
+        </section>
+
+        <section class="view" id="view-history" aria-labelledby="history-title">
+          <div class="page-heading"><div><div class="eyebrow">TRAÇABILITÉ</div><h1 id="history-title">Mouvements<span class="heading-dot">.</span></h1><p>Retrouvez les entrées, sorties et corrections de stock.</p></div><button type="button" class="button button-subtle" id="history-export">↓ Export CSV</button></div>
+          <div class="panel"><div class="table-scroll"><table class="data-table"><thead><tr><th>DATE</th><th>ARTICLE</th><th>MOUVEMENT</th><th>QUANTITÉ</th><th>AVANT → APRÈS</th><th>COMMENTAIRE</th></tr></thead><tbody id="history-body"></tbody></table></div><div class="table-footer"><span id="history-results">0 mouvement</span></div></div>
+        </section>
+
+        <section class="view" id="view-backup" aria-labelledby="backup-title">
+          <div class="page-heading"><div><div class="eyebrow">VOS DONNÉES</div><h1 id="backup-title">Sauvegardes<span class="heading-dot">.</span></h1><p>Gardez une copie de votre inventaire et de vos photos.</p></div></div>
+          <div class="backup-grid">
+            <article class="panel backup-card"><span class="backup-symbol">↓</span><h3>Sauvegarde complète</h3><p>Un clic télécharge sur cet appareil un fichier JSON complet (articles + photos + historique). Conservez-le en lieu sûr.</p><button class="button button-primary" type="button" id="export-json">Télécharger ma sauvegarde</button></article>
+            <article class="panel backup-card"><span class="backup-symbol">⇧</span><h3>Restaurer mes données</h3><p>Réimportez un fichier JSON V1 ou V2. La restauration remplace le stock partagé pour tous les appareils, après confirmation.</p><label class="button button-outline upload-button">Choisir une sauvegarde<input id="import-file" type="file" accept=".json,application/json" hidden></label></article>
+            <article class="panel backup-card"><span class="backup-symbol">▤</span><h3>Exporter vers Excel</h3><p>Obtenez un fichier CSV avec les références, quantités, prix d'achat, TVA, marges et bénéfices.</p><button class="button button-outline" type="button" id="export-csv">Télécharger le CSV</button></article>
+            <article class="panel backup-card danger-card"><span class="backup-symbol">×</span><h3>Vider le stock partagé</h3><p>Supprimez tous les articles et mouvements de la base Supabase, pour tous les appareils. Action irréversible.</p><button class="button button-danger" type="button" id="reset-all">Vider la base partagée</button></article>
+          </div>
+          <div class="security-note"><strong>Confidentialité et sauvegardes</strong><p>Les données sont synchronisées dans Supabase et les photos dans un compartiment privé. Le fichier JSON téléchargé contient tous les prix, stocks et photos : protégez-le. Une restauration modifie l'inventaire de tous les appareils et ne peut pas récupérer les données que vous n'aviez pas sauvegardées. Les téléchargements sont lancés après votre clic : le navigateur décide du dossier d'enregistrement.</p></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal" id="product-modal" hidden role="dialog" aria-modal="true" aria-labelledby="product-modal-title">
+    <div class="modal-panel modal-wide"><div class="modal-head"><div><span class="eyebrow">FICHE PRODUIT</span><h2 id="product-modal-title">Nouvel article</h2></div><button class="icon-btn close-modal" type="button" aria-label="Fermer">×</button></div>
+      <form id="product-form" novalidate>
+        <div class="modal-body">
+          <div class="form-section-heading">Informations générales</div>
+          <div class="image-and-fields"><div class="image-column"><label class="image-drop" id="image-drop"><input type="file" id="product-image" accept="image/png,image/jpeg,image/webp,image/gif" hidden><span id="image-preview"><span class="image-symbol">▧</span><strong>Ajouter une photo</strong><small>JPG, PNG, WEBP · 8 Mo max</small></span></label><button type="button" class="remove-image" id="remove-image" hidden>Retirer la photo</button></div>
+          <div class="fields-grow"><div class="form-grid"><label class="field field-wide"><span>Nom de l'article <b>*</b></span><input name="name" id="field-name" required maxlength="130" placeholder="Ex. : Produit / modèle / parfum"></label><label class="field"><span>Référence / SKU</span><input name="sku" maxlength="80" placeholder="Ex. : CV-001"></label><label class="field"><span>Catégorie</span><input name="category" maxlength="80" list="category-list" placeholder="Ex. : E-liquides"><datalist id="category-list"><option value="E-liquides"><option value="Matériel"><option value="Résistances"><option value="Accessoires"><option value="Divers"></datalist></label><label class="field"><span>Fournisseur</span><input name="supplier" maxlength="100" placeholder="Nom du fournisseur"></label><label class="field"><span>Code-barres</span><input name="barcode" maxlength="100" placeholder="EAN, code…"></label></div></div></div>
+          <div class="form-section-heading with-gap">Prix, TVA et rentabilité</div>
+          <div class="form-grid form-grid-four"><label class="field"><span>Prix d'achat HT (€) <b>*</b></span><input type="number" inputmode="decimal" name="purchaseHT" required min="0" max="10000000" step="0.01" value="0"></label><label class="field"><span>Prix de vente TTC (€) <b>*</b></span><input type="number" inputmode="decimal" name="saleTTC" required min="0" max="10000000" step="0.01" value="0"></label><label class="field"><span>TVA vente (%)</span><select name="vatRate"><option value="20">20 %</option><option value="10">10 %</option><option value="5.5">5,5 %</option><option value="2.1">2,1 %</option><option value="0">0 %</option></select></label><label class="field"><span>Autres frais HT / unité (€)</span><input type="number" inputmode="decimal" name="extraCostHT" min="0" max="10000000" step="0.01" value="0"></label></div>
+          <div class="profit-preview"><div><span>Vente HT</span><strong id="preview-sale-ht">0,00 €</strong></div><div><span>TVA sur vente</span><strong id="preview-vat">0,00 €</strong></div><div><span>Bénéfice brut / unité</span><strong id="preview-profit">0,00 €</strong></div><div><span>Taux de marge sur vente HT</span><strong id="preview-margin">0 %</strong></div></div>
+          <div class="form-section-heading with-gap">Quantités et suivi</div>
+          <div class="form-grid form-grid-three"><label class="field"><span>Quantité en stock <b>*</b></span><input type="number" inputmode="numeric" name="quantity" min="0" max="100000000" step="1" value="0" required></label><label class="field"><span>Seuil d'alerte</span><input type="number" inputmode="numeric" name="minQuantity" min="0" max="100000000" step="1" value="5"></label><label class="field"><span>Emplacement / rayon</span><input name="location" maxlength="100" placeholder="Ex. : Étagère A2"></label><label class="field field-full"><span>Notes internes</span><textarea name="notes" rows="2" maxlength="1200" placeholder="Informations utiles, variantes, remarques…"></textarea></label></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="button button-subtle close-modal">Annuler</button><button type="submit" class="button button-primary" id="save-product">Enregistrer l'article</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="movement-modal" hidden role="dialog" aria-modal="true" aria-labelledby="movement-modal-title"><div class="modal-panel"><div class="modal-head"><div><span class="eyebrow">MISE À JOUR DU STOCK</span><h2 id="movement-modal-title">Ajuster la quantité</h2></div><button class="icon-btn close-movement" type="button" aria-label="Fermer">×</button></div><form id="movement-form" novalidate><div class="modal-body"><div class="movement-product-name" id="movement-product-name"></div><p class="current-quantity">Stock actuel : <strong id="current-quantity">0</strong> unité(s)</p><div class="field"><span>Type de mouvement</span><select name="type"><option value="reception">Réception / réapprovisionnement (+)</option><option value="sale">Vente / sortie (−)</option><option value="loss">Casse / perte (−)</option><option value="return">Retour en stock (+)</option><option value="adjustment">Correction d'inventaire (+/−)</option></select></div><div class="field"><span id="movement-qty-label">Nombre d'unités</span><input type="number" name="amount" min="1" max="100000000" step="1" required value="1"></div><p class="movement-hint" id="movement-hint">Le stock sera augmenté du nombre d'unités indiqué.</p><div class="field"><span>Commentaire (facultatif)</span><textarea name="note" rows="2" maxlength="500" placeholder="Ex. : Livraison fournisseur du jour"></textarea></div></div><div class="modal-footer"><button type="button" class="button button-subtle close-movement">Annuler</button><button type="submit" class="button button-primary">Valider le mouvement</button></div></form></div></div>
+  <div class="modal" id="password-modal" hidden role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
+    <div class="modal-panel password-panel">
+      <div class="modal-head"><div><span class="eyebrow">SÉCURITÉ DU COMPTE</span><h2 id="password-modal-title">Changer mon mot de passe</h2></div><button class="icon-btn close-password" type="button" aria-label="Fermer">×</button></div>
+      <form id="password-form"><div class="modal-body">
+        <label class="field"><span>Mot de passe actuel</span><input id="password-current" type="password" autocomplete="current-password" required></label>
+        <label class="field"><span>Nouveau mot de passe (12 caractères minimum)</span><input id="password-new" type="password" autocomplete="new-password" minlength="12" required></label>
+        <label class="field"><span>Confirmer le nouveau mot de passe</span><input id="password-confirm" type="password" autocomplete="new-password" minlength="12" required></label>
+        <p class="auth-error" id="password-error" role="alert" hidden></p>
+      </div><div class="modal-footer"><button type="button" class="button button-subtle close-password">Annuler</button><button type="submit" class="button button-primary" id="password-save">Enregistrer</button></div></form>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
